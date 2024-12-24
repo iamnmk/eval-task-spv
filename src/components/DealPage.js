@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import StatusDropdown from './StatusDropdown';
 
 const DealPage = () => {
   const { id: spvId } = useParams();
@@ -10,6 +11,7 @@ const DealPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [spvData, setSpvData] = useState(null);
+  const [users, setUsers] = useState({});
 
   const fetchSPVData = useCallback(async () => {
     try {
@@ -25,6 +27,22 @@ const DealPage = () => {
       console.error('Error fetching SPV data:', error);
     }
   }, [spvId]);
+
+  const fetchUserDetails = async (userIds) => {
+    try {
+      // Get the current user's email
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Create a map with the admin email
+      const userMap = {
+        [currentUser.id]: currentUser.email
+      };
+      
+      setUsers(userMap);
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    }
+  };
 
   const fetchActivities = useCallback(async () => {
     try {
@@ -42,6 +60,12 @@ const DealPage = () => {
 
       console.log('Fetched activities:', data);
       setActivities(data || []);
+
+      // Fetch user details for all activities
+      if (data && data.length > 0) {
+        const userIds = [...new Set(data.map(activity => activity.user_id))];
+        await fetchUserDetails(userIds);
+      }
 
       // If no activities exist, create an initial activity
       if (!data || data.length === 0) {
@@ -74,23 +98,13 @@ const DealPage = () => {
     }
   }, [spvId]);
 
-  useEffect(() => {
-    console.log('Current activities:', activities);
-  }, [activities]);
-
   const checkUserRole = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Check if user has admin role (you'll need to implement this based on your auth system)
-      const { data: userData } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      setIsAdmin(userData?.role === 'admin');
+      // Check if user's email is admin@twelled.com
+      setIsAdmin(user.email === 'admin@twelled.com');
     } catch (error) {
       console.error('Error checking user role:', error);
     }
@@ -100,54 +114,32 @@ const DealPage = () => {
     checkUserRole();
     fetchSPVData();
     fetchActivities();
-  }, [fetchSPVData, fetchActivities, checkUserRole]);
+  }, [checkUserRole, fetchSPVData, fetchActivities]);
 
   const handleStatusChange = async (newStatus) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Update spv_basic_info status
-      const { error: updateError } = await supabase
-        .from('spv_basic_info')
-        .update({ status: newStatus })
-        .eq('id', spvId);
+    await fetchSPVData();
+    await fetchActivities();
+  };
 
-      if (updateError) throw updateError;
+  const getUserDisplay = (userId, userEmail) => {
+    return userEmail === 'admin@twelled.com' ? 'Admin' : (users[userId] || 'User');
+  };
 
-      // Log the activity
-      const { error: activityError } = await supabase
-        .from('spv_activity_log')
-        .insert({
-          spv_id: spvId,
-          user_id: user.id,
-          action: newStatus,
-          previous_status: spvData.status,
-          new_status: newStatus
-        });
-
-      if (activityError) throw activityError;
-
-      // Refresh data
-      fetchSPVData();
-      fetchActivities();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Error updating status. Please try again.');
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'in progress':
+        return 'bg-yellow-100 text-yellow-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const handleDownload = async () => {
     try {
-      // Get the SPV data
-      const { data: spvData, error: spvError } = await supabase
-        .from('spv_basic_info')
-        .select('*')
-        .eq('id', spvId)
-        .single();
-
-      if (spvError) throw spvError;
-
-      // Get the activities
       const { data: activities, error: activitiesError } = await supabase
         .from('spv_activity_log')
         .select('*')
@@ -156,7 +148,6 @@ const DealPage = () => {
 
       if (activitiesError) throw activitiesError;
 
-      // Create a text content for download
       const content = `SPV Details\n
 SPV Name: ${spvData.spv_name}
 Company/Fund: ${spvData.company_name}
@@ -168,9 +159,9 @@ ${activities.map(activity => `
 Date: ${format(new Date(activity.created_at), 'MMMM dd, yyyy')}
 Action: ${activity.action}
 Status: ${activity.new_status}
+By: ${getUserDisplay(activity.user_id, users[activity.user_id])}
 `).join('\n')}`;
 
-      // Create a blob and download
       const blob = new Blob([content], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -185,8 +176,6 @@ Status: ${activity.new_status}
       alert('Failed to download SPV data. Please try again.');
     }
   };
-
-  const statusOptions = ['draft', 'submitted', 'in progress'];
 
   if (loading) {
     return <div>Loading...</div>;
@@ -228,6 +217,7 @@ Status: ${activity.new_status}
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">By</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 </tr>
               </thead>
@@ -240,25 +230,19 @@ Status: ${activity.new_status}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {activity.action}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {getUserDisplay(activity.user_id, users[activity.user_id])}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {isAdmin ? (
-                        <select
-                          value={activity.new_status}
-                          onChange={(e) => handleStatusChange(e.target.value)}
-                          className="text-sm rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
-                        >
-                          {statusOptions.map((status) => (
-                            <option key={status} value={status}>
-                              {status.charAt(0).toUpperCase() + status.slice(1)}
-                            </option>
-                          ))}
-                        </select>
+                        <StatusDropdown
+                          spvId={spvId}
+                          currentStatus={activity.new_status}
+                          activity={activity}
+                          onStatusChange={handleStatusChange}
+                        />
                       ) : (
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                          ${activity.new_status === 'draft' ? 'bg-gray-100 text-gray-800' : ''}
-                          ${activity.new_status === 'submitted' ? 'bg-blue-100 text-blue-800' : ''}
-                          ${activity.new_status === 'in progress' ? 'bg-yellow-100 text-yellow-800' : ''}
-                        `}>
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(activity.new_status)}`}>
                           {activity.new_status}
                         </span>
                       )}

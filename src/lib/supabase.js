@@ -2,56 +2,63 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
 
+// Regular client for normal operations
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Admin client with service role key for admin operations
+export const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Initialize database schema
 async function initializeDatabase() {
-  const { error } = await supabase.rpc('initialize_spv_schema', {});
-  if (error) {
-    console.error('Error initializing database:', error);
+  // Update the status enum type
+  const updateStatusTypeSQL = `
+    DO $$ 
+    BEGIN 
+      -- Drop existing enum type if it exists
+      DROP TYPE IF EXISTS spv_status_type CASCADE;
+      
+      -- Create new enum type with updated values
+      CREATE TYPE spv_status_type AS ENUM ('draft', 'approved', 'rejected', 'in progress');
+      
+      -- Update existing columns to use new type with default value
+      ALTER TABLE spvs 
+        ALTER COLUMN status TYPE spv_status_type USING status::text::spv_status_type,
+        ALTER COLUMN status SET DEFAULT 'draft';
+        
+      ALTER TABLE spv_activity_log 
+        ALTER COLUMN new_status TYPE spv_status_type USING new_status::text::spv_status_type,
+        ALTER COLUMN previous_status TYPE spv_status_type USING 
+          CASE 
+            WHEN previous_status = 'submitted' THEN 'approved'
+            ELSE previous_status::text
+          END::spv_status_type;
+    EXCEPTION
+      WHEN others THEN
+        NULL;
+    END $$;
+  `;
+
+  const { error: schemaError } = await adminSupabase.rpc('initialize_spv_schema', {});
+  if (schemaError) {
+    console.error('Error initializing database:', schemaError);
+  }
+
+  // Update the status type
+  const { error: statusTypeError } = await adminSupabase.rpc('exec_sql', { sql: updateStatusTypeSQL });
+  if (statusTypeError) {
+    console.error('Error updating status type:', statusTypeError);
+  }
+
+  // Then set up RLS policies
+  const { error: rlsError } = await adminSupabase.rpc('setup_rls_policies', {});
+  if (rlsError) {
+    console.error('Error setting up RLS policies:', rlsError);
   }
 }
 
-// Create the stored procedure in Supabase SQL editor:
-/*
-create or replace function initialize_spv_schema()
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  -- Create SPVs table if it doesn't exist
-  create table if not exists spvs (
-    id uuid default uuid_generate_v4() primary key,
-    created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    company_name text not null,
-    transaction_type text not null,
-    instrument_list text not null,
-    allocation numeric not null,
-    status text not null default 'Draft',
-    updated_at timestamp with time zone default timezone('utc'::text, now()) not null
-  );
-
-  -- Create trigger to update updated_at timestamp
-  create or replace function update_updated_at_column()
-  returns trigger
-  language plpgsql
-  as $$
-  begin
-    new.updated_at = timezone('utc'::text, now());
-    return new;
-  end;
-  $$;
-
-  -- Create trigger if it doesn't exist
-  drop trigger if exists update_spvs_updated_at on spvs;
-  create trigger update_spvs_updated_at
-    before update on spvs
-    for each row
-    execute function update_updated_at_column();
-end;
-$$;
-*/
+// Run database initialization
+initializeDatabase().catch(console.error);
 
 export { initializeDatabase };
