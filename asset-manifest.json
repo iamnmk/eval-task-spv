@@ -1,17 +1,17 @@
 {
   "files": {
-    "main.css": "/eval-task-spv/static/css/main.6446468f.css",
-    "main.js": "/eval-task-spv/static/js/main.44290d8b.js",
+    "main.css": "/eval-task-spv/static/css/main.c04e12b4.css",
+    "main.js": "/eval-task-spv/static/js/main.dfea096f.js",
     "static/js/952.e650d39c.chunk.js": "/eval-task-spv/static/js/952.e650d39c.chunk.js",
     "static/js/488.3adedd8a.chunk.js": "/eval-task-spv/static/js/488.3adedd8a.chunk.js",
     "index.html": "/eval-task-spv/index.html",
-    "main.6446468f.css.map": "/eval-task-spv/static/css/main.6446468f.css.map",
-    "main.44290d8b.js.map": "/eval-task-spv/static/js/main.44290d8b.js.map",
+    "main.c04e12b4.css.map": "/eval-task-spv/static/css/main.c04e12b4.css.map",
+    "main.dfea096f.js.map": "/eval-task-spv/static/js/main.dfea096f.js.map",
     "952.e650d39c.chunk.js.map": "/eval-task-spv/static/js/952.e650d39c.chunk.js.map",
     "488.3adedd8a.chunk.js.map": "/eval-task-spv/static/js/488.3adedd8a.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.6446468f.css",
-    "static/js/main.44290d8b.js"
+    "static/css/main.c04e12b4.css",
+    "static/js/main.dfea096f.js"
   ]
 }
