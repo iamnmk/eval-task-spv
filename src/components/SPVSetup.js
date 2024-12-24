@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '../lib/supabase';
 
@@ -64,6 +64,61 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
           </div>
 
           <div>
+            <Label htmlFor="countryOfIncorporation">Country of Incorporation</Label>
+            <Select 
+              id="countryOfIncorporation" 
+              value={formData.basicInfo.countryOfIncorporation} 
+              onChange={(e) => handleInputChange('basicInfo', 'countryOfIncorporation', e.target.value)}
+            >
+              <option value="">Select country</option>
+              <option value="US">United States</option>
+              <option value="GB">United Kingdom</option>
+              <option value="CA">Canada</option>
+              <option value="AU">Australia</option>
+              <option value="DE">Germany</option>
+              <option value="FR">France</option>
+              <option value="IT">Italy</option>
+              <option value="ES">Spain</option>
+              <option value="NL">Netherlands</option>
+              <option value="SE">Sweden</option>
+              <option value="CH">Switzerland</option>
+              <option value="JP">Japan</option>
+              <option value="KR">South Korea</option>
+              <option value="CN">China</option>
+              <option value="IN">India</option>
+              <option value="BR">Brazil</option>
+              <option value="MX">Mexico</option>
+              <option value="ZA">South Africa</option>
+              <option value="AE">United Arab Emirates</option>
+              <option value="SG">Singapore</option>
+              <option value="HK">Hong Kong</option>
+              <option value="NZ">New Zealand</option>
+              <option value="IE">Ireland</option>
+              <option value="DK">Denmark</option>
+              <option value="NO">Norway</option>
+              <option value="FI">Finland</option>
+              <option value="BE">Belgium</option>
+              <option value="AT">Austria</option>
+              <option value="PT">Portugal</option>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="typeOfIncorporation">Type of Incorporation</Label>
+            <Select 
+              id="typeOfIncorporation" 
+              value={formData.basicInfo.typeOfIncorporation} 
+              onChange={(e) => handleInputChange('basicInfo', 'typeOfIncorporation', e.target.value)}
+            >
+              <option value="">Select type</option>
+              <option value="LLC">LLC</option>
+              <option value="C-Corp">C-Corp</option>
+              <option value="S-Corp">S-Corp</option>
+              <option value="Other">Other</option>
+            </Select>
+          </div>
+
+          <div>
             <Label htmlFor="companyStage">Company Stage</Label>
             <Select id="companyStage">
               <option value="">Select Company Stage</option>
@@ -78,11 +133,8 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="monthsRunway">Months of Runway</Label>
             <Select id="monthsRunway">
               <option value="">Select months runway</option>
-              {[3, 6, 9, 12, 18, 24].map((months) => (
-                <option key={months} value={months.toString()}>
-                  {months} months
-                </option>
-              ))}
+              <option value="Under 12">Fewer than 12 Months</option>
+              <option value="Over 12">More than 12 Months</option>
             </Select>
           </div>
 
@@ -129,6 +181,7 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Select id="transactionType" value={formData.terms.transactionType} onChange={(e) => handleInputChange('terms', 'transactionType', e.target.value)}>
               <option value="">Select transaction type</option>
               <option value="Primary">Primary</option>
+              <option value="Secondary">Secondary</option>
             </Select>
           </div>
 
@@ -136,6 +189,9 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="instrument">Instrument</Label>
             <Select id="instrument" value={formData.terms.instrumentType} onChange={(e) => handleInputChange('terms', 'instrumentType', e.target.value)}>
               <option value="">Select instrument</option>
+              <option value="Equity">Equity</option>
+              <option value="Safe">Safe</option>
+              <option value="Convertible Note">Convertible Note</option>
             </Select>
           </div>
 
@@ -154,6 +210,8 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="valuation">Valuation</Label>
             <Select id="valuation" value={formData.terms.valuationType} onChange={(e) => handleInputChange('terms', 'valuationType', e.target.value)}>
               <option value="">Select valuation</option>
+              <option value="Pre-Money">Pre-Money Valuation</option>
+              <option value="Post Money">Post-Money Valuation</option>
             </Select>
           </div>
 
@@ -161,6 +219,8 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="shareClass">Share Class</Label>
             <Select id="shareClass" value={formData.terms.shareClass} onChange={(e) => handleInputChange('terms', 'shareClass', e.target.value)}>
               <option value="">Select class</option>
+              <option value="Preferred">Preferred</option>
+              <option value="Ordinary">Ordinary</option>
             </Select>
           </div>
 
@@ -168,6 +228,15 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="roundSize">Round and Round Size</Label>
             <Select id="roundSize" value={formData.terms.roundType} onChange={(e) => handleInputChange('terms', 'roundType', e.target.value)}>
               <option value="">Select round and round size</option>
+              <option value="Pre-seed">Pre-seed</option>
+              <option value="Seed">Seed</option>
+              <option value="Pre A">Pre A</option>
+              <option value="Series A">Series A</option>
+              <option value="Pre B">Pre B</option>
+              <option value="Series B">Series B</option>
+              <option value="Pre C">Pre C</option>
+              <option value="Series C">Series C</option>
+
             </Select>
           </div>
 
@@ -282,6 +351,10 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Label htmlFor="carryRecipient">Carry Recipient</Label>
             <Select id="carryRecipient" value={formData.carry.carryRecipient} onChange={(e) => handleInputChange('carry', 'carryRecipient', e.target.value)}>
               <option value="">Recipient</option>
+              <option value="Carry">Carry</option>
+              <option value="Carry Recipient">Carry Recipient</option>
+              <option value="GP Commitment">GP Commitment</option>
+              <option value="Deal Partners">Deal Partners</option>
             </Select>
           </div>
 
@@ -298,16 +371,107 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
     return (
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-2">Summary</h2>
-        <p className="text-gray-600 mb-6">Text for Function or description of Summary</p>
+        <p className="text-gray-600 mb-6">Review the information you've provided</p>
 
-        <div className="space-y-6">
+        <div className="space-y-6 bg-gray-50 p-6 rounded-lg">
           <div>
-            <textarea
-              className="w-full p-4 border rounded-lg min-h-[200px] resize-none"
-              value={formData.summary.summaryText}
-              onChange={(e) => handleInputChange('summary', 'summaryText', e.target.value)}
-              placeholder="Enter your summary here..."
-            />
+            <h3 className="font-medium text-lg mb-4">Basic Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">SPV Name</p>
+                <p className="font-medium">{formData.basicInfo.spvName || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Company Name</p>
+                <p className="font-medium">{formData.basicInfo.companyName || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Description</p>
+                <p className="font-medium">{formData.basicInfo.description || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Country of Incorporation</p>
+                <p className="font-medium">{formData.basicInfo.countryOfIncorporation || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Type of Incorporation</p>
+                <p className="font-medium">{formData.basicInfo.typeOfIncorporation || 'Not provided'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-medium text-lg mb-4">Terms</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">Transaction Type</p>
+                <p className="font-medium">{formData.terms.transactionType || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Instrument Type</p>
+                <p className="font-medium">{formData.terms.instrumentType || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Valuation Type</p>
+                <p className="font-medium">{formData.terms.valuationType || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Share Class</p>
+                <p className="font-medium">{formData.terms.shareClass || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Round Type</p>
+                <p className="font-medium">{formData.terms.roundType || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Allocation</p>
+                <p className="font-medium">{formData.terms.allocation || 'Not provided'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-medium text-lg mb-4">Deal Memo</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">Memo</p>
+                <p className="font-medium">{formData.dealMemo.memo || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Other Investors</p>
+                <p className="font-medium">{formData.dealMemo.otherInvestors || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Past Financing</p>
+                <p className="font-medium">{formData.dealMemo.pastFinancing ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Risks</p>
+                <p className="font-medium">{formData.dealMemo.risks || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Disclosures</p>
+                <p className="font-medium">{formData.dealMemo.disclosures || 'Not provided'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-medium text-lg mb-4">Carry and GP Commitment</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-gray-600">Carry Amount</p>
+                <p className="font-medium">{formData.carry.carryAmount || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Carry Recipient</p>
+                <p className="font-medium">{formData.carry.carryRecipient || 'Not provided'}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Deal Partners</p>
+                <p className="font-medium">{formData.carry.dealPartners || 'Not provided'}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -364,7 +528,7 @@ function SuccessDialog({ isOpen, onClose }) {
               <path d="M20 6L9 17L4 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <h2 className="text-xl font-semibold mb-2">Success created SPVs</h2>
+          <h2 className="text-xl font-semibold">Success created SPVs</h2>
           <p className="text-gray-600 mb-6">Description for success message</p>
           <button
             onClick={onClose}
@@ -384,6 +548,7 @@ function SuccessDialog({ isOpen, onClose }) {
 export default function SPVSetup() {
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const sigPad = useRef();
   
   // Form state
@@ -391,7 +556,9 @@ export default function SPVSetup() {
     basicInfo: {
       spvName: '',
       companyName: '',
-      description: ''
+      description: '',
+      countryOfIncorporation: '',
+      typeOfIncorporation: ''
     },
     terms: {
       transactionType: '',
@@ -421,6 +588,96 @@ export default function SPVSetup() {
     }
   });
 
+  useEffect(() => {
+    async function fetchSPVData() {
+      try {
+        setIsLoading(true);
+        
+        // Fetch basic info
+        const { data: basicInfoData, error: basicInfoError } = await supabase
+          .from('spv_basic_info')
+          .select('*')
+          .single();
+        
+        if (basicInfoError && basicInfoError.code !== 'PGRST116') throw basicInfoError;
+        
+        if (basicInfoData) {
+          const spvId = basicInfoData.id;
+          
+          // Fetch terms
+          const { data: termsData } = await supabase
+            .from('spv_terms')
+            .select('*')
+            .eq('spv_id', spvId)
+            .single();
+            
+          // Fetch deal memo
+          const { data: dealMemoData } = await supabase
+            .from('spv_deal_memo')
+            .select('*')
+            .eq('spv_id', spvId)
+            .single();
+            
+          // Fetch carry
+          const { data: carryData } = await supabase
+            .from('spv_carry')
+            .select('*')
+            .eq('spv_id', spvId)
+            .single();
+            
+          // Fetch summary
+          const { data: summaryData } = await supabase
+            .from('spv_summary')
+            .select('*')
+            .eq('spv_id', spvId)
+            .single();
+
+          setFormData({
+            basicInfo: {
+              spvName: basicInfoData?.spv_name || '',
+              companyName: basicInfoData?.company_name || '',
+              description: basicInfoData?.description || '',
+              countryOfIncorporation: basicInfoData?.country_of_incorporation || '',
+              typeOfIncorporation: basicInfoData?.type_of_incorporation || ''
+            },
+            terms: {
+              transactionType: termsData?.transaction_type || '',
+              instrumentType: termsData?.instrument_type || '',
+              documentUrl: termsData?.document_url || '',
+              valuationType: termsData?.valuation_type || '',
+              shareClass: termsData?.share_class || '',
+              roundType: termsData?.round_type || '',
+              roundSize: termsData?.round_size || '',
+              allocation: termsData?.allocation || ''
+            },
+            dealMemo: {
+              memo: dealMemoData?.memo || '',
+              pitchDeckUrl: dealMemoData?.pitch_deck_url || '',
+              otherInvestors: dealMemoData?.other_investors || '',
+              pastFinancing: dealMemoData?.past_financing || false,
+              risks: dealMemoData?.risks || '',
+              disclosures: dealMemoData?.disclosures || ''
+            },
+            carry: {
+              carryAmount: carryData?.carry_amount || '',
+              carryRecipient: carryData?.carry_recipient || '',
+              dealPartners: carryData?.deal_partners || ''
+            },
+            summary: {
+              summaryText: summaryData?.summary_text || ''
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching SPV data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchSPVData();
+  }, []);
+
   const handleInputChange = (section, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -442,7 +699,9 @@ export default function SPVSetup() {
         .insert([{
           spv_name: formData.basicInfo.spvName,
           company_name: formData.basicInfo.companyName,
-          description: formData.basicInfo.description
+          description: formData.basicInfo.description,
+          country_of_incorporation: formData.basicInfo.countryOfIncorporation,
+          type_of_incorporation: formData.basicInfo.typeOfIncorporation
         }])
         .select();
 
@@ -540,6 +799,14 @@ export default function SPVSetup() {
     { number: 5, title: 'Summary' },
     { number: 6, title: 'E-sign and Submit' },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-lg font-medium">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div>

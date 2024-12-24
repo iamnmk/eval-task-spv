@@ -27,26 +27,22 @@ export default function Vehicles() {
 
   const fetchSPVs = async () => {
     try {
+      // First, let's check what data we have in spvs table
       const { data, error } = await supabase
-        .from('spv_basic_info')
-        .select(`
-          *,
-          spv_terms (
-            transaction_type,
-            instrument_type,
-            allocation
-          )
-        `);
+        .from('spvs')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const formattedData = data.map(spv => ({
-        spvName: spv.spv_name,
+        id: spv.id,
+        spvName: spv.company_name, // temporarily using company_name as spv_name
         companyName: spv.company_name,
-        status: 'Active', // You might want to add a status field to your database
-        transactionType: spv.spv_terms?.[0]?.transaction_type || '',
-        instrumentType: spv.spv_terms?.[0]?.instrument_type || '',
-        allocation: spv.spv_terms?.[0]?.allocation || 0,
+        status: 'Active',
+        transactionType: spv.transaction_type || '',
+        instrumentType: spv.instrument_list || '',
+        allocation: spv.allocation || 0
       }));
 
       setSpvs(formattedData);
@@ -149,7 +145,7 @@ export default function Vehicles() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredSPVs.map((spv, index) => (
-              <tr key={index}>
+              <tr key={spv.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="h-8 w-8 rounded-full bg-blue-500 mr-3"></div>
@@ -174,7 +170,7 @@ export default function Vehicles() {
                   {spv.instrumentType || 'Equity'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  ${spv.allocation.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${Number(spv.allocation).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
