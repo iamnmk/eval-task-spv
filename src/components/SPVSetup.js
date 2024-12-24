@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '../lib/supabase';
 
@@ -40,7 +41,7 @@ function Label({ children, htmlFor }) {
   );
 }
 
-function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange }) {
+function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange, handleFileUpload }) {
   if (step === 1) {
     return (
       <div className="mb-6">
@@ -190,45 +191,70 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <Select id="instrument" value={formData.terms.instrumentType} onChange={(e) => handleInputChange('terms', 'instrumentType', e.target.value)}>
               <option value="">Select instrument</option>
               <option value="Equity">Equity</option>
-              <option value="Safe">Safe</option>
+              <option value="SAFE">SAFE</option>
               <option value="Convertible Note">Convertible Note</option>
             </Select>
           </div>
 
           <div>
             <Label>Upload Document</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+            <div 
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleFileUpload}
+              onClick={() => document.getElementById('file-upload').click()}
+            >
+              <input
+                id="file-upload"
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e)}
+                accept=".pdf,.doc,.docx"
+              />
               <div className="flex flex-col items-center">
-                <span className="text-gray-600">Drop your file here, or</span>
-                <button className="text-[#1B3B36] font-medium">browse</button>
+                {formData.terms.documentUrl ? (
+                  <>
+                    <span className="text-green-600">✓ File uploaded</span>
+                    <span className="text-sm text-gray-500 mt-1">{formData.terms.documentUrl.split('/').pop()}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-gray-600">Drop your file here, or</span>
+                    <button type="button" className="text-[#1B3B36] font-medium">browse</button>
+                    <div className="mt-2 text-sm text-gray-500">Max file size 10 MB</div>
+                  </>
+                )}
               </div>
-              <div className="mt-2 text-sm text-gray-500">Max file size 10 MB</div>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="valuation">Valuation</Label>
-            <Select id="valuation" value={formData.terms.valuationType} onChange={(e) => handleInputChange('terms', 'valuationType', e.target.value)}>
-              <option value="">Select valuation</option>
-              <option value="Pre-Money">Pre-Money Valuation</option>
-              <option value="Post Money">Post-Money Valuation</option>
+            <Label htmlFor="valuationType">Valuation Type</Label>
+            <Select id="valuationType" value={formData.terms.valuationType} onChange={(e) => handleInputChange('terms', 'valuationType', e.target.value)}>
+              <option value="">Select valuation type</option>
+              <option value="Pre-Money">Pre-Money</option>
+              <option value="Post-Money">Post-Money</option>
             </Select>
           </div>
 
           <div>
             <Label htmlFor="shareClass">Share Class</Label>
             <Select id="shareClass" value={formData.terms.shareClass} onChange={(e) => handleInputChange('terms', 'shareClass', e.target.value)}>
-              <option value="">Select class</option>
+              <option value="">Select share class</option>
+              <option value="Common">Common</option>
               <option value="Preferred">Preferred</option>
-              <option value="Ordinary">Ordinary</option>
+              <option value="Series Seed">Series Seed</option>
+              <option value="Series A">Series A</option>
+              <option value="Series B">Series B</option>
+              <option value="Series C">Series C</option>
             </Select>
           </div>
 
           <div>
-            <Label htmlFor="roundSize">Round and Round Size</Label>
-            <Select id="roundSize" value={formData.terms.roundType} onChange={(e) => handleInputChange('terms', 'roundType', e.target.value)}>
-              <option value="">Select round and round size</option>
-              <option value="Pre-seed">Pre-seed</option>
+            <Label htmlFor="roundType">Round Type</Label>
+            <Select id="roundType" value={formData.terms.roundType} onChange={(e) => handleInputChange('terms', 'roundType', e.target.value)}>
+              <option value="">Select round type</option>
+              <option value="Pre Seed">Pre Seed</option>
               <option value="Seed">Seed</option>
               <option value="Pre A">Pre A</option>
               <option value="Series A">Series A</option>
@@ -236,16 +262,32 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
               <option value="Series B">Series B</option>
               <option value="Pre C">Pre C</option>
               <option value="Series C">Series C</option>
-
+              <option value="Series D">Series D</option>
+              <option value="Series E">Series E</option>
+              <option value="Series F">Series F</option>
             </Select>
           </div>
 
           <div>
+            <Label htmlFor="roundSize">Round Size</Label>
+            <Input
+              type="number"
+              id="roundSize"
+              value={formData.terms.roundSize}
+              onChange={(e) => handleInputChange('terms', 'roundSize', e.target.value)}
+              placeholder="Enter round size"
+            />
+          </div>
+
+          <div>
             <Label htmlFor="allocation">Allocation</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-2.5">$</span>
-              <Input id="allocation" className="pl-6" value={formData.terms.allocation} onChange={(e) => handleInputChange('terms', 'allocation', e.target.value)} placeholder="e.g 100.0" />
-            </div>
+            <Input
+              type="number"
+              id="allocation"
+              value={formData.terms.allocation}
+              onChange={(e) => handleInputChange('terms', 'allocation', e.target.value)}
+              placeholder="Enter allocation"
+            />
           </div>
         </div>
       </div>
@@ -255,49 +297,82 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
   if (step === 3) {
     return (
       <div className="mb-6">
-        <h2 className="text-xl font-semibold mb-2">Deal Page & Memo</h2>
-        <p className="text-gray-600 mb-6">Text for Function or description of Deal Page & Memo</p>
+        <h2 className="text-xl font-semibold mb-2">Deal Memo</h2>
+        <p className="text-gray-600 mb-6">Text for Function or description of Deal Memo</p>
 
         <div className="space-y-6">
+          <div>
+            <Label>Upload Pitch Deck</Label>
+            <div 
+              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleFileUpload(e, 'dealMemo', 'pitchDeckUrl')}
+              onClick={() => document.getElementById('pitch-deck-upload').click()}
+            >
+              <input
+                id="pitch-deck-upload"
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileUpload(e, 'dealMemo', 'pitchDeckUrl')}
+                accept=".pdf,.ppt,.pptx"
+              />
+              <div className="flex flex-col items-center">
+                {formData.dealMemo.pitchDeckUrl ? (
+                  <>
+                    <span className="text-green-600">✓ Pitch Deck uploaded</span>
+                    <span className="text-sm text-gray-500 mt-1">{formData.dealMemo.pitchDeckUrl.split('/').pop()}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-gray-600">Drop your pitch deck here, or</span>
+                    <button type="button" className="text-[#1B3B36] font-medium">browse</button>
+                    <div className="mt-2 text-sm text-gray-500">Max file size 10 MB</div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="memo">Memo</Label>
             <textarea
               id="memo"
-              className="w-full p-2 border rounded min-h-[100px]"
+              className="w-full p-2 border rounded h-32"
               value={formData.dealMemo.memo}
               onChange={(e) => handleInputChange('dealMemo', 'memo', e.target.value)}
-              placeholder="What's your investment thesis? Why are you excited about this deal?"
+              placeholder="Enter memo details..."
             />
           </div>
 
           <div>
-            <Label>Pitch Deck</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <div className="flex flex-col items-center">
-                <span className="text-gray-600">Drop your file here, or</span>
-                <button className="text-[#1B3B36] font-medium">browse</button>
-              </div>
-              <div className="mt-2 text-sm text-gray-500">Support file: PDF only</div>
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="otherInvestors">Others Investors</Label>
-            <div className="relative">
-              <span className="absolute left-3 top-2.5">$</span>
-              <Input id="otherInvestors" className="pl-6" value={formData.dealMemo.otherInvestors} onChange={(e) => handleInputChange('dealMemo', 'otherInvestors', e.target.value)} placeholder="e.g 100.0" />
-            </div>
+            <Label htmlFor="otherInvestors">Other Investors</Label>
+            <Input
+              id="otherInvestors"
+              value={formData.dealMemo.otherInvestors}
+              onChange={(e) => handleInputChange('dealMemo', 'otherInvestors', e.target.value)}
+              placeholder="List other investors..."
+            />
           </div>
 
           <div>
             <Label>Past Financing</Label>
             <RadioGroup>
               <label className="flex items-center space-x-2">
-                <input type="radio" name="pastFinancing" value="yes" defaultChecked />
+                <input
+                  type="radio"
+                  name="pastFinancing"
+                  checked={formData.dealMemo.pastFinancing === true}
+                  onChange={() => handleInputChange('dealMemo', 'pastFinancing', true)}
+                />
                 <span>Yes</span>
               </label>
               <label className="flex items-center space-x-2">
-                <input type="radio" name="pastFinancing" value="no" />
+                <input
+                  type="radio"
+                  name="pastFinancing"
+                  checked={formData.dealMemo.pastFinancing === false}
+                  onChange={() => handleInputChange('dealMemo', 'pastFinancing', false)}
+                />
                 <span>No</span>
               </label>
             </RadioGroup>
@@ -305,30 +380,24 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
 
           <div>
             <Label htmlFor="risks">Risks</Label>
-            <div className="border rounded">
-              <div className="border-b p-2 flex items-center space-x-2">
-                <select className="text-sm" defaultValue="Sans Serif">
-                  <option>Sans Serif</option>
-                </select>
-                <div className="h-4 w-px bg-gray-300" />
-                <button className="font-bold">B</button>
-                <button className="italic">I</button>
-                <button className="underline">U</button>
-                <button>T</button>
-              </div>
-              <textarea
-                id="risks"
-                className="w-full p-2 min-h-[100px] focus:outline-none"
-                value={formData.dealMemo.risks}
-                onChange={(e) => handleInputChange('dealMemo', 'risks', e.target.value)}
-                placeholder="Lorem Ipsum..."
-              />
-            </div>
+            <textarea
+              id="risks"
+              className="w-full p-2 border rounded h-32"
+              value={formData.dealMemo.risks}
+              onChange={(e) => handleInputChange('dealMemo', 'risks', e.target.value)}
+              placeholder="List potential risks..."
+            />
           </div>
 
           <div>
             <Label htmlFor="disclosures">Disclosures</Label>
-            <Input id="disclosures" value={formData.dealMemo.disclosures} onChange={(e) => handleInputChange('dealMemo', 'disclosures', e.target.value)} placeholder="e.g 100.0" />
+            <textarea
+              id="disclosures"
+              className="w-full p-2 border rounded h-32"
+              value={formData.dealMemo.disclosures}
+              onChange={(e) => handleInputChange('dealMemo', 'disclosures', e.target.value)}
+              placeholder="Enter any disclosures..."
+            />
           </div>
         </div>
       </div>
@@ -546,6 +615,8 @@ function SuccessDialog({ isOpen, onClose }) {
 }
 
 export default function SPVSetup() {
+  const location = useLocation();
+  const spvId = location.state?.spvId;
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -590,83 +661,35 @@ export default function SPVSetup() {
 
   useEffect(() => {
     async function fetchSPVData() {
+      if (!spvId) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         
         // Fetch basic info
-        const { data: basicInfoData, error: basicInfoError } = await supabase
-          .from('spv_basic_info')
+        const { data: spvData } = await supabase
+          .from('spvs')
           .select('*')
+          .eq('id', spvId)
           .single();
         
-        if (basicInfoError && basicInfoError.code !== 'PGRST116') throw basicInfoError;
-        
-        if (basicInfoData) {
-          const spvId = basicInfoData.id;
-          
-          // Fetch terms
-          const { data: termsData } = await supabase
-            .from('spv_terms')
-            .select('*')
-            .eq('spv_id', spvId)
-            .single();
-            
-          // Fetch deal memo
-          const { data: dealMemoData } = await supabase
-            .from('spv_deal_memo')
-            .select('*')
-            .eq('spv_id', spvId)
-            .single();
-            
-          // Fetch carry
-          const { data: carryData } = await supabase
-            .from('spv_carry')
-            .select('*')
-            .eq('spv_id', spvId)
-            .single();
-            
-          // Fetch summary
-          const { data: summaryData } = await supabase
-            .from('spv_summary')
-            .select('*')
-            .eq('spv_id', spvId)
-            .single();
-
-          setFormData({
+        if (spvData) {
+          setFormData(prevData => ({
+            ...prevData,
             basicInfo: {
-              spvName: basicInfoData?.spv_name || '',
-              companyName: basicInfoData?.company_name || '',
-              description: basicInfoData?.description || '',
-              countryOfIncorporation: basicInfoData?.country_of_incorporation || '',
-              typeOfIncorporation: basicInfoData?.type_of_incorporation || ''
+              ...prevData.basicInfo,
+              companyName: spvData.company_name || '',
             },
             terms: {
-              transactionType: termsData?.transaction_type || '',
-              instrumentType: termsData?.instrument_type || '',
-              documentUrl: termsData?.document_url || '',
-              valuationType: termsData?.valuation_type || '',
-              shareClass: termsData?.share_class || '',
-              roundType: termsData?.round_type || '',
-              roundSize: termsData?.round_size || '',
-              allocation: termsData?.allocation || ''
-            },
-            dealMemo: {
-              memo: dealMemoData?.memo || '',
-              pitchDeckUrl: dealMemoData?.pitch_deck_url || '',
-              otherInvestors: dealMemoData?.other_investors || '',
-              pastFinancing: dealMemoData?.past_financing || false,
-              risks: dealMemoData?.risks || '',
-              disclosures: dealMemoData?.disclosures || ''
-            },
-            carry: {
-              carryAmount: carryData?.carry_amount || '',
-              carryRecipient: carryData?.carry_recipient || '',
-              dealPartners: carryData?.deal_partners || ''
-            },
-            summary: {
-              summaryText: summaryData?.summary_text || ''
+              ...prevData.terms,
+              transactionType: spvData.transaction_type || '',
+              instrumentType: spvData.instrument_list || '',
+              allocation: spvData.allocation?.toString() || ''
             }
-          });
+          }));
         }
       } catch (error) {
         console.error('Error fetching SPV data:', error);
@@ -676,7 +699,7 @@ export default function SPVSetup() {
     }
 
     fetchSPVData();
-  }, []);
+  }, [spvId]);
 
   const handleInputChange = (section, field, value) => {
     setFormData(prev => ({
@@ -688,95 +711,179 @@ export default function SPVSetup() {
     }));
   };
 
+  const handleFileUpload = async (event, section, field) => {
+    try {
+      let file;
+      if (event.dataTransfer) {
+        file = event.dataTransfer.files[0];
+        event.preventDefault();
+      } else {
+        file = event.target.files[0];
+      }
+
+      if (!file) return;
+
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File is too large. Maximum size is 10MB.');
+        return;
+      }
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${section}_${field}_${Date.now()}.${fileExt}`;
+      const { data } = await supabase.storage
+        .from('spv-documents')
+        .upload(fileName, file);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('spv-documents')
+        .getPublicUrl(fileName);
+
+      // Update form data with document URL
+      handleInputChange(section, field, publicUrl);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file. Please try again.');
+    }
+  };
+
   const handleSubmit = async () => {
     try {
-      // Get signature data as base64
-      const signatureData = sigPad.current.toDataURL();
+      setIsLoading(true);
 
-      // Insert basic info and get the SPV ID
-      const { data: basicInfoData, error: basicInfoError } = await supabase
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Get signature data if signature pad exists
+      const signatureData = sigPad.current ? sigPad.current.toDataURL() : null;
+
+      // First, check if basic info exists
+      const { data: existingBasicInfo } = await supabase
         .from('spv_basic_info')
-        .insert([{
-          spv_name: formData.basicInfo.spvName,
-          company_name: formData.basicInfo.companyName,
-          description: formData.basicInfo.description,
-          country_of_incorporation: formData.basicInfo.countryOfIncorporation,
-          type_of_incorporation: formData.basicInfo.typeOfIncorporation
-        }])
-        .select();
+        .select('*')
+        .eq('id', spvId)
+        .single();
 
-      if (basicInfoError) throw basicInfoError;
-      const spvId = basicInfoData[0].id;
+      // If basic info doesn't exist, create it
+      if (!existingBasicInfo) {
+        const { error: basicInfoError } = await supabase
+          .from('spv_basic_info')
+          .insert({
+            id: spvId,
+            spv_name: formData.basicInfo.spvName,
+            company_name: formData.basicInfo.companyName,
+            description: formData.basicInfo.description,
+            status: 'submitted'
+          });
 
-      // Insert terms
+        if (basicInfoError) throw basicInfoError;
+      } else {
+        // Update existing basic info
+        const { error: basicInfoError } = await supabase
+          .from('spv_basic_info')
+          .update({
+            spv_name: formData.basicInfo.spvName,
+            company_name: formData.basicInfo.companyName,
+            description: formData.basicInfo.description,
+            status: 'submitted'
+          })
+          .eq('id', spvId);
+
+        if (basicInfoError) throw basicInfoError;
+      }
+
+      // Update spvs table status
+      const { error: spvsError } = await supabase
+        .from('spvs')
+        .update({ status: 'submitted' })
+        .eq('id', spvId);
+
+      if (spvsError) throw spvsError;
+
+      // Update terms
+      const termsData = {
+        transaction_type: formData.terms.transactionType || null,
+        instrument_type: formData.terms.instrumentType,
+        document_url: formData.terms.documentUrl || null,
+        valuation_type: formData.terms.valuationType || null,
+        share_class: formData.terms.shareClass || null,
+        round_type: formData.terms.roundType || null
+      };
+
+      // Only add numeric fields if they are valid numbers
+      if (formData.terms.roundSize && !isNaN(parseFloat(formData.terms.roundSize))) {
+        termsData.round_size = parseFloat(formData.terms.roundSize);
+      }
+      if (formData.terms.allocation && !isNaN(parseFloat(formData.terms.allocation))) {
+        termsData.allocation = parseFloat(formData.terms.allocation);
+      }
+
       const { error: termsError } = await supabase
         .from('spv_terms')
-        .insert([{
-          spv_id: spvId,
-          transaction_type: formData.terms.transactionType,
-          instrument_type: formData.terms.instrumentType,
-          document_url: formData.terms.documentUrl,
-          valuation_type: formData.terms.valuationType,
-          share_class: formData.terms.shareClass,
-          round_type: formData.terms.roundType,
-          round_size: formData.terms.roundSize,
-          allocation: formData.terms.allocation
-        }]);
+        .update(termsData)
+        .eq('spv_id', spvId);
 
       if (termsError) throw termsError;
 
-      // Insert deal memo
-      const { error: dealMemoError } = await supabase
+      // Update deal memo
+      const { error: memoError } = await supabase
         .from('spv_deal_memo')
-        .insert([{
+        .upsert({
           spv_id: spvId,
-          memo: formData.dealMemo.memo,
-          pitch_deck_url: formData.dealMemo.pitchDeckUrl,
-          other_investors: formData.dealMemo.otherInvestors,
-          past_financing: formData.dealMemo.pastFinancing,
-          risks: formData.dealMemo.risks,
-          disclosures: formData.dealMemo.disclosures
-        }]);
+          memo: formData.dealMemo.memo || null,
+          pitch_deck_url: formData.dealMemo.pitchDeckUrl || null,
+          other_investors: formData.dealMemo.otherInvestors || null,
+          past_financing: formData.dealMemo.pastFinancing || false,
+          risks: formData.dealMemo.risks || null,
+          disclosures: formData.dealMemo.disclosures || null
+        });
 
-      if (dealMemoError) throw dealMemoError;
+      if (memoError) throw memoError;
 
-      // Insert carry
+      // Update carry
+      const carryData = {
+        spv_id: spvId,
+        carry_recipient: formData.carry.carryRecipient || null,
+      };
+
+      // Only add numeric fields if they are valid numbers
+      if (formData.carry.carryAmount && !isNaN(parseFloat(formData.carry.carryAmount))) {
+        carryData.carry_amount = parseFloat(formData.carry.carryAmount);
+      }
+      if (formData.carry.dealPartners && !isNaN(parseFloat(formData.carry.dealPartners))) {
+        carryData.deal_partners = parseFloat(formData.carry.dealPartners);
+      }
+
       const { error: carryError } = await supabase
         .from('spv_carry')
-        .insert([{
-          spv_id: spvId,
-          carry_amount: formData.carry.carryAmount,
-          carry_recipient: formData.carry.carryRecipient,
-          deal_partners: formData.carry.dealPartners
-        }]);
+        .upsert(carryData);
 
       if (carryError) throw carryError;
 
-      // Insert summary
-      const { error: summaryError } = await supabase
-        .from('spv_summary')
-        .insert([{
+      // Log activity
+      const { error: activityError } = await supabase
+        .from('spv_activity_log')
+        .insert({
           spv_id: spvId,
-          summary_text: formData.summary.summaryText
-        }]);
+          user_id: user.id,
+          action: 'submitted',
+          previous_status: 'draft',
+          new_status: 'submitted'
+        });
 
-      if (summaryError) throw summaryError;
+      if (activityError) {
+        console.error('Error logging activity:', activityError);
+      }
 
-      // Insert signature
-      const { error: signatureError } = await supabase
-        .from('spv_signatures')
-        .insert([{
-          spv_id: spvId,
-          signature_data: signatureData,
-          signed_by: '' // Add user info here if available
-        }]);
-
-      if (signatureError) throw signatureError;
-
+      // Show success dialog
       setShowSuccess(true);
     } catch (error) {
       console.error('Error submitting form:', error);
-      // Handle error (show error message to user)
+      alert('Error submitting form. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -836,7 +943,15 @@ export default function SPVSetup() {
         <div className="flex-1 p-8">
           {/* Form */}
           <div className="max-w-3xl">
-            <StepContent step={step} setStep={setStep} sigPad={sigPad} clear={clear} formData={formData} handleInputChange={handleInputChange} />
+            <StepContent 
+              step={step} 
+              setStep={setStep} 
+              sigPad={sigPad} 
+              clear={clear} 
+              formData={formData} 
+              handleInputChange={handleInputChange}
+              handleFileUpload={handleFileUpload}
+            />
 
             <div className="flex justify-between">
               {step > 1 && (

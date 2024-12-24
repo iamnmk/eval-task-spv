@@ -19,32 +19,58 @@ export default function CreateSPVModal({ isOpen, onClose }) {
     setLoading(true);
 
     try {
-      // Format allocation as a number
       const allocationValue = parseFloat(formData.allocation.replace(/[^0-9.]/g, ''));
       
       const spvData = {
         company_name: formData.companyName,
         transaction_type: formData.transactionType,
         instrument_list: formData.instrumentList,
-        allocation: allocationValue
+        allocation: allocationValue,
+        status: 'draft'
       };
 
-      console.log('Attempting to insert SPV data:', spvData);
-
-      const { data, error } = await supabase
+      // Insert into spvs table first
+      const { data: spvsData, error: spvsError } = await supabase
         .from('spvs')
         .insert(spvData)
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || 'Failed to create SPV');
-      }
+      if (spvsError) throw spvsError;
 
-      console.log('Successfully created SPV:', data);
+      // Insert into spv_basic_info
+      const { error: basicInfoError } = await supabase
+        .from('spv_basic_info')
+        .insert({
+          id: spvsData.id,
+          company_name: formData.companyName,
+          status: 'draft'
+        });
+
+      if (basicInfoError) throw basicInfoError;
+
+      // Insert initial terms
+      const { error: termsError } = await supabase
+        .from('spv_terms')
+        .insert({
+          spv_id: spvsData.id,
+          transaction_type: formData.transactionType,
+          instrument_type: formData.instrumentList,
+          allocation: allocationValue
+        });
+
+      if (termsError) throw termsError;
+
+      // Reset form
+      setFormData({
+        companyName: '',
+        transactionType: '',
+        instrumentList: '',
+        allocation: ''
+      });
+      
       onClose();
-      navigate('/spv-setup', { state: { spvId: data.id } });
+      navigate('/spv-setup', { state: { spvId: spvsData.id } });
     } catch (error) {
       console.error('Error creating SPV:', error);
       alert(error.message);
@@ -60,7 +86,6 @@ export default function CreateSPVModal({ isOpen, onClose }) {
           <h2 className="text-xl font-semibold">Create a new SPV</h2>
           <button 
             onClick={onClose}
-            disabled={loading}
             className="text-gray-500 hover:text-gray-700"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -81,7 +106,6 @@ export default function CreateSPVModal({ isOpen, onClose }) {
               value={formData.companyName}
               onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
               required
-              disabled={loading}
             />
           </div>
 
@@ -94,7 +118,6 @@ export default function CreateSPVModal({ isOpen, onClose }) {
               value={formData.transactionType}
               onChange={(e) => setFormData({ ...formData, transactionType: e.target.value })}
               required
-              disabled={loading}
             >
               <option value="">Select Transaction Type</option>
               <option value="Primary">Primary</option>
@@ -112,11 +135,9 @@ export default function CreateSPVModal({ isOpen, onClose }) {
               value={formData.instrumentList}
               onChange={(e) => setFormData({ ...formData, instrumentList: e.target.value })}
               required
-              disabled={loading}
             >
-              <option value="">Select Instrument List</option>
-              <option value="Common">Common</option>
-              <option value="Preferred">Preferred</option>
+              <option value="">Select instrument</option>
+              <option value="Equity">Equity</option>
               <option value="SAFE">SAFE</option>
               <option value="Convertible Note">Convertible Note</option>
             </select>
@@ -134,12 +155,10 @@ export default function CreateSPVModal({ isOpen, onClose }) {
                 className="w-full p-2 pl-6 border rounded-lg"
                 value={formData.allocation}
                 onChange={(e) => {
-                  // Only allow numbers and decimal point
                   const value = e.target.value.replace(/[^0-9.]/g, '');
                   setFormData({ ...formData, allocation: value });
                 }}
                 required
-                disabled={loading}
               />
             </div>
           </div>
@@ -149,7 +168,7 @@ export default function CreateSPVModal({ isOpen, onClose }) {
             disabled={loading}
             className="w-full bg-[#1B3B36] text-white py-2 px-4 rounded-lg hover:bg-opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Creating...' : 'Begin SPV Setup'}
+            Begin SPV Setup
           </button>
         </form>
       </div>
