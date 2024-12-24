@@ -19,56 +19,20 @@ const Vehicles = () => {
 
   const fetchSPVs = async () => {
     try {
-      console.log('Fetching SPVs...');
+      setLoading(true);
       
-      // Fetch from spvs table first
-      const { data: spvsData, error: spvsError } = await supabase
-        .from('spvs')
-        .select(`
-          id,
-          company_name,
-          transaction_type,
-          instrument_list,
-          allocation,
-          status,
-          created_at
-        `)
-        .order('created_at', { ascending: false });
-
-      if (spvsError) {
-        console.error('Error fetching SPVs:', spvsError);
-        throw spvsError;
-      }
-
-      // Then fetch corresponding basic info
-      const { data: basicInfoData, error: basicInfoError } = await supabase
+      // Fetch all non-draft SPVs
+      const { data: spvData, error: spvError } = await supabase
         .from('spv_basic_info')
         .select('*')
-        .in('id', spvsData.map(spv => spv.id));
+        .neq('status', 'draft')
+        .order('created_at', { ascending: false });
 
-      if (basicInfoError) {
-        console.error('Error fetching basic info:', basicInfoError);
-        throw basicInfoError;
-      }
+      if (spvError) throw spvError;
 
-      // Transform the data to match our component's expectations
-      const transformedData = spvsData.map(spv => {
-        const basicInfo = basicInfoData.find(info => info.id === spv.id);
-        return {
-          ...spv,
-          spv_basic_info: basicInfo || {
-            id: spv.id,
-            spv_name: `${spv.company_name} SPV`,
-            company_name: spv.company_name,
-            status: spv.status
-          }
-        };
-      });
-
-      console.log('Transformed data:', transformedData);
-      setSpvs(transformedData);
+      setSpvs(spvData || []);
     } catch (error) {
-      console.error('Error in fetchSPVs:', error);
+      console.error('Error fetching SPVs:', error);
     } finally {
       setLoading(false);
     }
@@ -183,29 +147,29 @@ const Vehicles = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center mr-3">
-                        {spv.spv_basic_info?.spv_name?.charAt(0) || 'S'}
+                        {spv.spv_name?.charAt(0) || 'S'}
                       </div>
                       <div className="text-sm font-medium text-gray-900">
-                        {spv.spv_basic_info?.spv_name}
+                        {spv.spv_name}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                      {spv.spv_basic_info?.company_name?.charAt(0) || 'C'}
+                      {spv.company_name?.charAt(0) || 'C'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${spv.spv_basic_info?.status === 'Active' ? 'bg-green-100 text-green-800' : ''}
-                      ${spv.spv_basic_info?.status === 'In Active' ? 'bg-yellow-100 text-yellow-800' : ''}
-                      ${spv.spv_basic_info?.status === 'submitted' ? 'bg-blue-100 text-blue-800' : ''}
+                      ${spv.status === 'Active' ? 'bg-green-100 text-green-800' : ''}
+                      ${spv.status === 'In Active' ? 'bg-yellow-100 text-yellow-800' : ''}
+                      ${spv.status === 'submitted' ? 'bg-blue-100 text-blue-800' : ''}
                     `}>
-                      {spv.spv_basic_info?.status || 'draft'}
+                      {spv.status || 'draft'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {spv.spv_basic_info?.company_name}
+                    {spv.company_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-cyan-100 text-cyan-800">

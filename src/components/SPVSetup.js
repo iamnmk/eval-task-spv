@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '../lib/supabase';
 
@@ -615,8 +615,9 @@ function SuccessDialog({ isOpen, onClose }) {
 }
 
 export default function SPVSetup() {
+  const { spvId } = useParams();
+  const navigate = useNavigate();
   const location = useLocation();
-  const spvId = location.state?.spvId;
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -659,6 +660,159 @@ export default function SPVSetup() {
     }
   });
 
+  const isFormComplete = () => {
+    // Basic Info
+    if (!formData.basicInfo.spvName || !formData.basicInfo.companyName) return false;
+    
+    // Terms
+    if (!formData.terms.transactionType || !formData.terms.instrumentType || 
+        !formData.terms.allocation || !formData.terms.roundSize) return false;
+    
+    // Deal Memo
+    if (!formData.dealMemo.memo || !formData.dealMemo.risks || 
+        !formData.dealMemo.disclosures) return false;
+    
+    // Carry
+    if (!formData.carry.carryAmount || !formData.carry.carryRecipient) return false;
+    
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Check if form is complete
+      const complete = isFormComplete();
+
+      // Create SPV record
+      const { data: spvData, error: basicInfoError } = await supabase
+        .from('spv_basic_info')
+        .upsert({
+          id: spvId || undefined,
+          spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
+          company_name: formData.basicInfo.companyName,
+          description: formData.basicInfo.description,
+          status: complete ? 'approved' : 'draft',
+          is_complete: complete,
+          created_by: user.id,
+          company_details: formData.dealMemo.memo,
+          financials: formData.carry.carryAmount,
+          cap_table: formData.terms.valuationType,
+          investment_terms: formData.terms.instrumentType,
+          documents: formData.dealMemo.pitchDeckUrl
+        })
+        .select()
+        .single();
+
+      if (basicInfoError) throw basicInfoError;
+
+      // Create activity log entry
+      const { error: activityError } = await supabase
+        .from('spv_activity_log')
+        .insert({
+          spv_id: spvData.id,
+          user_id: user.id,
+          action: complete ? 'SPV Submitted' : 'SPV Draft Saved',
+          new_status: complete ? 'approved' : 'draft'
+        });
+
+      if (activityError) throw activityError;
+
+      // Navigate back to vehicles page if complete, otherwise stay on form
+      if (complete) {
+        navigate('/vehicles');
+      } else {
+        alert('Draft saved successfully. Please complete all required fields to submit.');
+      }
+    } catch (error) {
+      console.error('Error saving SPV:', error);
+      alert('Error saving SPV. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (section, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleFileUpload = async (file, section, field) => {
+    try {
+      setIsLoading(true);
+
+      // Upload file to Supabase storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${section}_${field}_${Date.now()}.${fileExt}`;
+      const { error } = await supabase.storage
+        .from('spv-documents')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('spv-documents')
+        .getPublicUrl(fileName);
+
+      // Update form data with file URL
+      handleInputChange(section, field, publicUrl);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Error uploading file. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      setIsLoading(true);
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Create SPV record
+      const { data: spvData, error: basicInfoError } = await supabase
+        .from('spv_basic_info')
+        .upsert({
+          id: spvId || undefined,
+          spv_name: formData.basicInfo.spvName || 'Untitled SPV',
+          company_name: formData.basicInfo.companyName,
+          description: formData.basicInfo.description,
+          status: 'draft',
+          is_complete: false,  // Mark as incomplete
+          created_by: user.id,
+          company_details: formData.dealMemo.memo,
+          financials: formData.carry.carryAmount,
+          cap_table: formData.terms.valuationType,
+          investment_terms: formData.terms.instrumentType,
+          documents: formData.dealMemo.pitchDeckUrl
+        })
+        .select()
+        .single();
+
+      if (basicInfoError) throw basicInfoError;
+
+      alert('Draft saved successfully');
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      alert('Error saving draft. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     async function fetchSPVData() {
       if (!spvId) {
@@ -700,196 +854,6 @@ export default function SPVSetup() {
 
     fetchSPVData();
   }, [spvId]);
-
-  const handleInputChange = (section, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleFileUpload = async (file, section, field) => {
-    try {
-      setIsLoading(true);
-
-      // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${section}_${field}_${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage
-        .from('spv-documents')
-        .upload(fileName, file);
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('spv-documents')
-        .getPublicUrl(fileName);
-
-      // Update form data with file URL
-      handleInputChange(section, field, publicUrl);
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Error uploading file. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      setIsLoading(true);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Get signature data if signature pad exists
-      const signatureData = sigPad.current ? sigPad.current.toDataURL() : null;
-
-      // First, check if basic info exists
-      const { data: existingBasicInfo } = await supabase
-        .from('spv_basic_info')
-        .select('*')
-        .eq('id', spvId)
-        .single();
-
-      // If basic info doesn't exist, create it
-      if (!existingBasicInfo) {
-        const { error: basicInfoError } = await supabase
-          .from('spv_basic_info')
-          .insert({
-            id: spvId,
-            spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
-            company_name: formData.basicInfo.companyName,
-            description: formData.basicInfo.description,
-            status: 'submitted'
-          });
-
-        if (basicInfoError) throw basicInfoError;
-      } else {
-        // Update existing basic info
-        const { error: basicInfoError } = await supabase
-          .from('spv_basic_info')
-          .update({
-            spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
-            company_name: formData.basicInfo.companyName,
-            description: formData.basicInfo.description,
-            status: 'submitted'
-          })
-          .eq('id', spvId);
-
-        if (basicInfoError) throw basicInfoError;
-      }
-
-      // Update terms
-      const termsData = {
-        spv_id: spvId,
-        transaction_type: formData.terms.transactionType || null,
-        instrument_type: formData.terms.instrumentType,
-        document_url: formData.terms.documentUrl || null,
-        valuation_type: formData.terms.valuationType || null,
-        share_class: formData.terms.shareClass || null,
-        round_type: formData.terms.roundType || null
-      };
-
-      // Only add numeric fields if they are valid numbers
-      if (formData.terms.roundSize && !isNaN(parseFloat(formData.terms.roundSize))) {
-        termsData.round_size = parseFloat(formData.terms.roundSize);
-      }
-      if (formData.terms.allocation && !isNaN(parseFloat(formData.terms.allocation))) {
-        termsData.allocation = parseFloat(formData.terms.allocation);
-      }
-
-      const { error: termsError } = await supabase
-        .from('spv_terms')
-        .upsert(termsData);
-
-      if (termsError) throw termsError;
-
-      // Save signature data
-      if (signatureData) {
-        const { error: signatureError } = await supabase
-          .from('spv_signatures')
-          .upsert({
-            spv_id: spvId,
-            user_id: user.id,
-            signature_data: signatureData,
-            signed_at: new Date().toISOString()
-          });
-
-        if (signatureError) throw signatureError;
-      }
-
-      // Update spvs table status
-      const { error: spvsError } = await supabase
-        .from('spvs')
-        .update({ status: 'submitted' })
-        .eq('id', spvId);
-
-      if (spvsError) throw spvsError;
-
-      // Update deal memo
-      const { error: memoError } = await supabase
-        .from('spv_deal_memo')
-        .upsert({
-          spv_id: spvId,
-          memo: formData.dealMemo.memo || null,
-          pitch_deck_url: formData.dealMemo.pitchDeckUrl || null,
-          other_investors: formData.dealMemo.otherInvestors || null,
-          past_financing: formData.dealMemo.pastFinancing || false,
-          risks: formData.dealMemo.risks || null,
-          disclosures: formData.dealMemo.disclosures || null
-        });
-
-      if (memoError) throw memoError;
-
-      // Update carry
-      const carryData = {
-        spv_id: spvId,
-        carry_recipient: formData.carry.carryRecipient || null,
-      };
-
-      // Only add numeric fields if they are valid numbers
-      if (formData.carry.carryAmount && !isNaN(parseFloat(formData.carry.carryAmount))) {
-        carryData.carry_amount = parseFloat(formData.carry.carryAmount);
-      }
-      if (formData.carry.dealPartners && !isNaN(parseFloat(formData.carry.dealPartners))) {
-        carryData.deal_partners = parseFloat(formData.carry.dealPartners);
-      }
-
-      const { error: carryError } = await supabase
-        .from('spv_carry')
-        .upsert(carryData);
-
-      if (carryError) throw carryError;
-
-      // Log activity
-      const { error: activityError } = await supabase
-        .from('spv_activity_log')
-        .insert({
-          spv_id: spvId,
-          user_id: user.id,
-          action: 'submitted',
-          previous_status: 'draft',
-          new_status: 'submitted'
-        });
-
-      if (activityError) {
-        console.error('Error logging activity:', activityError);
-      }
-
-      // Show success dialog
-      setShowSuccess(true);
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      alert('Error submitting form. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const clear = () => {
     if (sigPad.current) {
@@ -967,12 +931,30 @@ export default function SPVSetup() {
                 </Button>
               )}
               <div className="flex-1" />
-              <Button 
-                className="bg-[#1B3B36] text-white" 
-                onClick={step === 6 ? handleSubmit : () => setStep(Math.min(step + 1, 6))}
-              >
-                {step === 6 ? 'Submit' : 'Next'}
-              </Button>
+              {step === 6 ? (
+                <Button 
+                  className="bg-[#1B3B36] text-white" 
+                  onClick={handleSubmit}
+                  disabled={!isFormComplete()}
+                >
+                  Submit
+                </Button>
+              ) : (
+                <Button 
+                  className="bg-[#1B3B36] text-white" 
+                  onClick={() => setStep(Math.min(step + 1, 6))}
+                >
+                  Next
+                </Button>
+              )}
+              {step === 6 && (
+                <Button 
+                  className="bg-[#1B3B36] text-white" 
+                  onClick={handleSaveDraft}
+                >
+                  Save Draft
+                </Button>
+              )}
             </div>
           </div>
         </div>

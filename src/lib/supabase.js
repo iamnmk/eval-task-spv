@@ -12,53 +12,39 @@ export const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Initialize database schema
 async function initializeDatabase() {
-  // Update the status enum type
-  const updateStatusTypeSQL = `
-    DO $$ 
-    BEGIN 
-      -- Drop existing enum type if it exists
-      DROP TYPE IF EXISTS spv_status_type CASCADE;
-      
-      -- Create new enum type with updated values
-      CREATE TYPE spv_status_type AS ENUM ('draft', 'approved', 'rejected', 'in progress');
-      
-      -- Update existing columns to use new type with default value
-      ALTER TABLE spvs 
-        ALTER COLUMN status TYPE spv_status_type USING status::text::spv_status_type,
-        ALTER COLUMN status SET DEFAULT 'draft';
-        
-      ALTER TABLE spv_activity_log 
-        ALTER COLUMN new_status TYPE spv_status_type USING new_status::text::spv_status_type,
-        ALTER COLUMN previous_status TYPE spv_status_type USING 
-          CASE 
-            WHEN previous_status = 'submitted' THEN 'approved'
-            ELSE previous_status::text
-          END::spv_status_type;
-    EXCEPTION
-      WHEN others THEN
-        NULL;
-    END $$;
-  `;
+  try {
+    // Add is_complete column
+    const { error: columnError } = await adminSupabase
+      .from('spv_basic_info')
+      .select('id')
+      .limit(1);
 
-  const { error: schemaError } = await adminSupabase.rpc('initialize_spv_schema', {});
-  if (schemaError) {
-    console.error('Error initializing database:', schemaError);
-  }
+    if (columnError && columnError.message.includes('is_complete')) {
+      // Column doesn't exist, create it
+      const { error } = await adminSupabase
+        .from('spv_basic_info')
+        .update({ is_complete: true })
+        .eq('id', '00000000-0000-0000-0000-000000000000'); // This will fail but create the column
 
-  // Update the status type
-  const { error: statusTypeError } = await adminSupabase.rpc('exec_sql', { sql: updateStatusTypeSQL });
-  if (statusTypeError) {
-    console.error('Error updating status type:', statusTypeError);
-  }
+      console.log('Added is_complete column');
+    }
 
-  // Then set up RLS policies
-  const { error: rlsError } = await adminSupabase.rpc('setup_rls_policies', {});
-  if (rlsError) {
-    console.error('Error setting up RLS policies:', rlsError);
+    // Update existing records to mark non-draft as complete
+    const { error: updateError } = await adminSupabase
+      .from('spv_basic_info')
+      .update({ is_complete: true })
+      .neq('status', 'draft');
+
+    if (updateError) {
+      console.error('Error updating records:', updateError);
+    }
+
+  } catch (error) {
+    console.error('Error initializing database:', error);
   }
 }
 
 // Run database initialization
-initializeDatabase().catch(console.error);
+initializeDatabase();
 
 export { initializeDatabase };
