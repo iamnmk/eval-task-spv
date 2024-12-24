@@ -1,24 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import SPVSetup from './components/SPVSetup';
-import Vehicles from './components/Vehicles';
-import Login from './components/Login';
-import CreateUser from './components/CreateUser';
-import DealPage from './components/DealPage';
-import ProtectedRoute from './components/ProtectedRoute';
-import { MenuIcon, Car, Network, LogOut } from 'lucide-react';
 import { supabase } from './lib/supabase';
-
-function Unauthorized() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Unauthorized Access</h1>
-        <p className="text-gray-600">You don't have permission to access this page.</p>
-      </div>
-    </div>
-  );
-}
+import Login from './components/Login';
+import Vehicles from './components/Vehicles';
+import SPVSetup from './components/SPVSetup';
+import DealPage from './components/DealPage';
+import CreateUser from './components/CreateUser';
+import Unauthorized from './components/Unauthorized';
+import { MenuIcon, Car, Network, LogOut } from 'lucide-react';
 
 function Sidebar() {
   const navigate = useNavigate();
@@ -84,61 +73,104 @@ function Layout({ children }) {
 }
 
 function App() {
+  const [session, setSession] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   useEffect(() => {
-    // initializeDatabase();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      checkAdminStatus(session?.user?.email);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      checkAdminStatus(session?.user?.email);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  const checkAdminStatus = async (email) => {
+    if (!email) {
+      setIsAdmin(false);
+      return;
+    }
+
+    if (email === 'admin@twelled.com') {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
+  };
+
+  // Use basename only in production
+  const basename = process.env.NODE_ENV === 'production' ? '/eval-task-spv' : '';
+
   return (
-    <Router>
+    <Router basename={basename}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/unauthorized" element={<Unauthorized />} />
-        
+        <Route
+          path="/"
+          element={
+            session ? (
+              <Navigate to="/vehicles" replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
         <Route
           path="/vehicles"
           element={
-            <ProtectedRoute>
+            session ? (
               <Layout>
-                <Vehicles />
+                <Vehicles isAdmin={isAdmin} />
               </Layout>
-            </ProtectedRoute>
+            ) : (
+              <Navigate to="/login" />
+            )
           }
         />
-        
-        <Route
-          path="/deal/:id"
-          element={
-            <ProtectedRoute>
-              <Layout>
-                <DealPage />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-        
         <Route
           path="/spv-setup"
           element={
-            <ProtectedRoute>
+            session ? (
               <Layout>
                 <SPVSetup />
               </Layout>
-            </ProtectedRoute>
+            ) : (
+              <Navigate to="/login" />
+            )
           }
         />
-        
+        <Route
+          path="/deal/:spvId"
+          element={
+            session ? (
+              <Layout>
+                <DealPage />
+              </Layout>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
         <Route
           path="/create-user"
           element={
-            <ProtectedRoute requiredRole="admin">
+            session && isAdmin ? (
               <Layout>
                 <CreateUser />
               </Layout>
-            </ProtectedRoute>
+            ) : (
+              <Navigate to="/unauthorized" />
+            )
           }
         />
-        
-        <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );

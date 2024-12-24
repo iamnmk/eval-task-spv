@@ -2,10 +2,85 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
-import StatusDropdown from './StatusDropdown';
+import { Check, Clock, ChevronDown } from 'lucide-react';
+
+const StatusBadge = ({ status, isAdmin, onStatusChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const statusOptions = ['Draft', 'Submitted', 'In Review', 'Approved'];
+
+  const handleStatusClick = async (newStatus) => {
+    if (onStatusChange) {
+      await onStatusChange(newStatus.toLowerCase());
+      setIsOpen(false);
+    }
+  };
+
+  const badge = (status) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return (
+          <div className="flex items-center space-x-1 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full w-fit">
+            <Check size={14} />
+            <span className="text-sm">Approved</span>
+          </div>
+        );
+      case 'submitted':
+        return (
+          <div className="flex items-center space-x-1 text-blue-600 bg-blue-50 px-2 py-1 rounded-full w-fit">
+            <Check size={14} />
+            <span className="text-sm">Submitted</span>
+          </div>
+        );
+      case 'in review':
+        return (
+          <div className="flex items-center space-x-1 text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full w-fit">
+            <Clock size={14} />
+            <span className="text-sm">In Review</span>
+          </div>
+        );
+      case 'draft':
+      default:
+        return (
+          <div className="flex items-center space-x-1 text-gray-600 bg-gray-100 px-2 py-1 rounded-full w-fit">
+            <span className="text-sm">Draft</span>
+          </div>
+        );
+    }
+  };
+
+  if (!isAdmin) {
+    return badge(status);
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center space-x-1 cursor-pointer"
+      >
+        {badge(status)}
+        <ChevronDown size={16} className="text-gray-500" />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute z-10 mt-1 bg-white rounded-lg shadow-lg border border-gray-100 py-1">
+          {statusOptions.map((option) => (
+            <button
+              key={option}
+              onClick={() => handleStatusClick(option)}
+              className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const DealPage = () => {
-  const { id: spvId } = useParams();
+  const { spvId } = useParams();
   const navigate = useNavigate();
   const [activities, setActivities] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -117,25 +192,39 @@ const DealPage = () => {
   }, [checkUserRole, fetchSPVData, fetchActivities]);
 
   const handleStatusChange = async (newStatus) => {
-    await fetchSPVData();
-    await fetchActivities();
+    try {
+      // Update the SPV status
+      const { error: updateError } = await supabase
+        .from('spv_basic_info')
+        .update({ status: newStatus })
+        .eq('id', spvId);
+
+      if (updateError) throw updateError;
+
+      // Add activity log entry
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error: logError } = await supabase
+        .from('spv_activity_log')
+        .insert({
+          spv_id: spvId,
+          user_id: user.id,
+          action: 'Status Updated',
+          new_status: newStatus,
+          created_at: new Date().toISOString()
+        });
+
+      if (logError) throw logError;
+
+      // Refresh data
+      await fetchSPVData();
+      await fetchActivities();
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
   };
 
   const getUserDisplay = (userId, userEmail) => {
     return userEmail === 'admin@twelled.com' ? 'Admin' : (users[userId] || 'User');
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'in progress':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
   };
 
   const handleDownload = async () => {
@@ -182,20 +271,20 @@ By: ${getUserDisplay(activity.user_id, users[activity.user_id])}
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Deal</h1>
-        <div className="space-x-4">
+        <h1 className="text-2xl font-semibold">Deal</h1>
+        <div className="space-x-3">
           <button
             onClick={handleDownload}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            className="text-gray-600 hover:text-gray-800"
           >
             Download option
           </button>
           {!isAdmin && (
             <button
               onClick={() => navigate(`/spv-setup/${spvId}`)}
-              className="px-4 py-2 bg-green-900 text-white rounded-md hover:bg-green-800"
+              className="px-3 py-1.5 bg-[#1B3B36] text-white text-sm rounded hover:bg-opacity-90"
             >
               Edit
             </button>
@@ -203,56 +292,38 @@ By: ${getUserDisplay(activity.user_id, users[activity.user_id])}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold">Activity Log</h2>
-          {activities.length === 0 && !loading && (
-            <p className="text-gray-500 text-sm mt-2">No activities found</p>
-          )}
-        </div>
-        {activities.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">By</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+      <div className="bg-white rounded-lg">
+        <div className="p-6">
+          <h2 className="text-base font-semibold mb-6">Twelled SPVs</h2>
+          <table className="w-full">
+            <thead>
+              <tr className="border-b text-sm">
+                <th className="text-left py-2 font-medium text-gray-500">Date</th>
+                <th className="text-left py-2 font-medium text-gray-500">Action</th>
+                <th className="text-left py-2 font-medium text-gray-500">By</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activities.map((activity, index) => (
+                <tr key={index} className="border-b last:border-b-0">
+                  <td className="py-4 text-sm">
+                    {format(new Date(activity.created_at), 'MMMM d, yyyy')}
+                  </td>
+                  <td className="py-4">
+                    <StatusBadge 
+                      status={activity.new_status}
+                      isAdmin={isAdmin}
+                      onStatusChange={handleStatusChange}
+                    />
+                  </td>
+                  <td className="py-4 text-sm">
+                    {getUserDisplay(activity.user_id, users[activity.user_id])}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {activities.map((activity) => (
-                  <tr key={activity.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {format(new Date(activity.created_at), 'MMMM dd, yyyy')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {activity.action}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {getUserDisplay(activity.user_id, users[activity.user_id])}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {isAdmin ? (
-                        <StatusDropdown
-                          spvId={spvId}
-                          currentStatus={activity.new_status}
-                          activity={activity}
-                          onStatusChange={handleStatusChange}
-                        />
-                      ) : (
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(activity.new_status)}`}>
-                          {activity.new_status}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
