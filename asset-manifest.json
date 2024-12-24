@@ -1,0 +1,17 @@
+{
+  "files": {
+    "main.css": "/eval-task-spv/static/css/main.b2e86500.css",
+    "main.js": "/eval-task-spv/static/js/main.cd7e026f.js",
+    "static/js/952.e650d39c.chunk.js": "/eval-task-spv/static/js/952.e650d39c.chunk.js",
+    "static/js/488.3adedd8a.chunk.js": "/eval-task-spv/static/js/488.3adedd8a.chunk.js",
+    "index.html": "/eval-task-spv/index.html",
+    "main.b2e86500.css.map": "/eval-task-spv/static/css/main.b2e86500.css.map",
+    "main.cd7e026f.js.map": "/eval-task-spv/static/js/main.cd7e026f.js.map",
+    "952.e650d39c.chunk.js.map": "/eval-task-spv/static/js/952.e650d39c.chunk.js.map",
+    "488.3adedd8a.chunk.js.map": "/eval-task-spv/static/js/488.3adedd8a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b2e86500.css",
+    "static/js/main.cd7e026f.js"
+  ]
+}
