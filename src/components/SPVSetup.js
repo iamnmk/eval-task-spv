@@ -208,7 +208,7 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
                 id="file-upload"
                 type="file"
                 className="hidden"
-                onChange={(e) => handleFileUpload(e)}
+                onChange={(e) => handleFileUpload(e.target.files[0], 'terms', 'documentUrl')}
                 accept=".pdf,.doc,.docx"
               />
               <div className="flex flex-col items-center">
@@ -306,14 +306,14 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
             <div 
               className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400"
               onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => handleFileUpload(e, 'dealMemo', 'pitchDeckUrl')}
+              onDrop={(e) => handleFileUpload(e.target.files[0], 'dealMemo', 'pitchDeckUrl')}
               onClick={() => document.getElementById('pitch-deck-upload').click()}
             >
               <input
                 id="pitch-deck-upload"
                 type="file"
                 className="hidden"
-                onChange={(e) => handleFileUpload(e, 'dealMemo', 'pitchDeckUrl')}
+                onChange={(e) => handleFileUpload(e.target.files[0], 'dealMemo', 'pitchDeckUrl')}
                 accept=".pdf,.ppt,.pptx"
               />
               <div className="flex flex-col items-center">
@@ -711,41 +711,31 @@ export default function SPVSetup() {
     }));
   };
 
-  const handleFileUpload = async (event, section, field) => {
+  const handleFileUpload = async (file, section, field) => {
     try {
-      let file;
-      if (event.dataTransfer) {
-        file = event.dataTransfer.files[0];
-        event.preventDefault();
-      } else {
-        file = event.target.files[0];
-      }
-
-      if (!file) return;
-
-      // Check file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('File is too large. Maximum size is 10MB.');
-        return;
-      }
+      setIsLoading(true);
 
       // Upload file to Supabase storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${section}_${field}_${Date.now()}.${fileExt}`;
-      const { data } = await supabase.storage
+      const { error } = await supabase.storage
         .from('spv-documents')
         .upload(fileName, file);
+
+      if (error) throw error;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('spv-documents')
         .getPublicUrl(fileName);
 
-      // Update form data with document URL
+      // Update form data with file URL
       handleInputChange(section, field, publicUrl);
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Failed to upload file. Please try again.');
+      alert('Error uploading file. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -772,7 +762,7 @@ export default function SPVSetup() {
           .from('spv_basic_info')
           .insert({
             id: spvId,
-            spv_name: formData.basicInfo.spvName,
+            spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
             company_name: formData.basicInfo.companyName,
             description: formData.basicInfo.description,
             status: 'submitted'
@@ -784,7 +774,7 @@ export default function SPVSetup() {
         const { error: basicInfoError } = await supabase
           .from('spv_basic_info')
           .update({
-            spv_name: formData.basicInfo.spvName,
+            spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
             company_name: formData.basicInfo.companyName,
             description: formData.basicInfo.description,
             status: 'submitted'
@@ -794,16 +784,9 @@ export default function SPVSetup() {
         if (basicInfoError) throw basicInfoError;
       }
 
-      // Update spvs table status
-      const { error: spvsError } = await supabase
-        .from('spvs')
-        .update({ status: 'submitted' })
-        .eq('id', spvId);
-
-      if (spvsError) throw spvsError;
-
       // Update terms
       const termsData = {
+        spv_id: spvId,
         transaction_type: formData.terms.transactionType || null,
         instrument_type: formData.terms.instrumentType,
         document_url: formData.terms.documentUrl || null,
@@ -822,10 +805,31 @@ export default function SPVSetup() {
 
       const { error: termsError } = await supabase
         .from('spv_terms')
-        .update(termsData)
-        .eq('spv_id', spvId);
+        .upsert(termsData);
 
       if (termsError) throw termsError;
+
+      // Save signature data
+      if (signatureData) {
+        const { error: signatureError } = await supabase
+          .from('spv_signatures')
+          .upsert({
+            spv_id: spvId,
+            user_id: user.id,
+            signature_data: signatureData,
+            signed_at: new Date().toISOString()
+          });
+
+        if (signatureError) throw signatureError;
+      }
+
+      // Update spvs table status
+      const { error: spvsError } = await supabase
+        .from('spvs')
+        .update({ status: 'submitted' })
+        .eq('id', spvId);
+
+      if (spvsError) throw spvsError;
 
       // Update deal memo
       const { error: memoError } = await supabase

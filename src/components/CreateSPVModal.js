@@ -43,6 +43,7 @@ export default function CreateSPVModal({ isOpen, onClose }) {
         .from('spv_basic_info')
         .insert({
           id: spvsData.id,
+          spv_name: `${formData.companyName} SPV`,  
           company_name: formData.companyName,
           status: 'draft'
         });
