@@ -661,19 +661,17 @@ export default function SPVSetup() {
   });
 
   const isFormComplete = () => {
-    // Basic Info
+    // Basic Info - only require essential fields
     if (!formData.basicInfo.spvName || !formData.basicInfo.companyName) return false;
     
-    // Terms
-    if (!formData.terms.transactionType || !formData.terms.instrumentType || 
-        !formData.terms.allocation || !formData.terms.roundSize) return false;
+    // Terms - only require essential fields
+    if (!formData.terms.transactionType || !formData.terms.instrumentType) return false;
     
-    // Deal Memo
-    if (!formData.dealMemo.memo || !formData.dealMemo.risks || 
-        !formData.dealMemo.disclosures) return false;
+    // Deal Memo - only require memo
+    if (!formData.dealMemo.memo) return false;
     
-    // Carry
-    if (!formData.carry.carryAmount || !formData.carry.carryRecipient) return false;
+    // Carry - only require carry amount
+    if (!formData.carry.carryAmount) return false;
     
     return true;
   };
@@ -683,55 +681,138 @@ export default function SPVSetup() {
     setIsLoading(true);
 
     try {
+      // Get signature data
+      if (!sigPad.current || sigPad.current.isEmpty()) {
+        alert('Please provide your signature before submitting');
+        setIsLoading(false);
+        return;
+      }
+      const signatureData = sigPad.current.toDataURL();
+
       // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        throw new Error('Authentication error. Please sign in again.');
+      }
+
+      if (!user) {
+        throw new Error('No user found. Please sign in.');
+      }
 
       // Check if form is complete
       const complete = isFormComplete();
+      const timestamp = new Date().toISOString();
 
-      // Create SPV record
-      const { data: spvData, error: basicInfoError } = await supabase
+      // 1. Create or update basic SPV info
+      const { data: spvData, error: spvError } = await supabase
         .from('spv_basic_info')
         .upsert({
           id: spvId || undefined,
-          spv_name: formData.basicInfo.spvName || `${formData.basicInfo.companyName} SPV`,
+          spv_name: formData.basicInfo.spvName,
           company_name: formData.basicInfo.companyName,
           description: formData.basicInfo.description,
           status: complete ? 'approved' : 'draft',
           is_complete: complete,
-          created_by: user.id,
-          company_details: formData.dealMemo.memo,
-          financials: formData.carry.carryAmount,
-          cap_table: formData.terms.valuationType,
-          investment_terms: formData.terms.instrumentType,
-          documents: formData.dealMemo.pitchDeckUrl
+          created_at: timestamp,
+          updated_at: timestamp
         })
         .select()
         .single();
 
-      if (basicInfoError) throw basicInfoError;
+      if (spvError) throw spvError;
 
-      // Create activity log entry
+      // 2. Create or update SPV terms
+      const { error: termsError } = await supabase
+        .from('spv_terms')
+        .upsert({
+          spv_id: spvData.id,
+          transaction_type: formData.terms.transactionType,
+          document_url: formData.terms.documentUrl,
+          round_size: formData.terms.roundSize,
+          allocation: formData.terms.allocation,
+          instrument_type: formData.terms.instrumentType,
+          round_type: formData.terms.roundType,
+          share_class: formData.terms.shareClass,
+          valuation_type: formData.terms.valuationType,
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+
+      if (termsError) throw termsError;
+
+      // 3. Create or update SPV carry
+      const { error: carryError } = await supabase
+        .from('spv_carry')
+        .upsert({
+          spv_id: spvData.id,
+          carry_amount: formData.carry.carryAmount,
+          carry_recipient: formData.carry.carryRecipient,
+          deal_partners: formData.carry.dealPartners,
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+
+      if (carryError) throw carryError;
+
+      // 4. Create or update deal memo
+      const { error: memoError } = await supabase
+        .from('spv_deal_memo')
+        .upsert({
+          spv_id: spvData.id,
+          memo: formData.dealMemo.memo,
+          pitch_deck_url: formData.dealMemo.pitchDeckUrl,
+          other_investors: formData.dealMemo.otherInvestors,
+          past_financing: formData.dealMemo.pastFinancing,
+          risks: formData.dealMemo.risks,
+          disclosures: formData.dealMemo.disclosures,
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+
+      if (memoError) throw memoError;
+
+      // 5. Create signature record
+      const { error: signatureError } = await supabase
+        .from('spv_signatures')
+        .upsert({
+          spv_id: spvData.id,
+          signature_data: signatureData,
+          signed_by: user.id,
+          signed_at: timestamp,
+          created_at: timestamp,
+          updated_at: timestamp
+        });
+
+      if (signatureError) throw signatureError;
+
+      // 6. Create activity log entry
       const { error: activityError } = await supabase
         .from('spv_activity_log')
         .insert({
           spv_id: spvData.id,
           user_id: user.id,
           action: complete ? 'SPV Submitted' : 'SPV Draft Saved',
-          new_status: complete ? 'approved' : 'draft'
+          previous_status: 'draft',
+          new_status: complete ? 'approved' : 'draft',
+          created_at: timestamp
         });
 
       if (activityError) throw activityError;
 
-      // Navigate back to vehicles page if complete, otherwise stay on form
+      // Show success dialog and navigate
       if (complete) {
-        navigate('/vehicles');
+        setShowSuccess(true);
+        setTimeout(() => {
+          navigate('/vehicles');
+        }, 2000);
       } else {
         alert('Draft saved successfully. Please complete all required fields to submit.');
       }
     } catch (error) {
       console.error('Error saving SPV:', error);
-      alert('Error saving SPV. Please try again.');
+      alert(error.message || 'Error saving SPV. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -784,7 +865,7 @@ export default function SPVSetup() {
 
       // Create SPV record
       const { data: spvData, error: basicInfoError } = await supabase
-        .from('spv_basic_info')
+        .from('spvs')
         .upsert({
           id: spvId || undefined,
           spv_name: formData.basicInfo.spvName || 'Untitled SPV',
@@ -932,27 +1013,26 @@ export default function SPVSetup() {
               )}
               <div className="flex-1" />
               {step === 6 ? (
-                <Button 
-                  className="bg-[#1B3B36] text-white" 
-                  onClick={handleSubmit}
-                  disabled={!isFormComplete()}
-                >
-                  Submit
-                </Button>
+                <div className="flex gap-4">
+                  <Button 
+                    className="bg-[#1B3B36] text-white hover:bg-[#2a5a52]" 
+                    onClick={handleSubmit}
+                  >
+                    Submit
+                  </Button>
+                  <Button 
+                    className="border border-[#1B3B36] text-[#1B3B36] hover:bg-gray-50" 
+                    onClick={handleSaveDraft}
+                  >
+                    Save Draft
+                  </Button>
+                </div>
               ) : (
                 <Button 
                   className="bg-[#1B3B36] text-white" 
                   onClick={() => setStep(Math.min(step + 1, 6))}
                 >
                   Next
-                </Button>
-              )}
-              {step === 6 && (
-                <Button 
-                  className="bg-[#1B3B36] text-white" 
-                  onClick={handleSaveDraft}
-                >
-                  Save Draft
                 </Button>
               )}
             </div>
