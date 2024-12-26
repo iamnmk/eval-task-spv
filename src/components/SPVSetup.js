@@ -346,8 +346,9 @@ function StepContent({ step, setStep, sigPad, clear, formData, handleInputChange
 
           <div>
             <Label htmlFor="otherInvestors">Other Investors</Label>
-            <Input
+            <textarea
               id="otherInvestors"
+              className="w-full p-2 border rounded h-32"
               value={formData.dealMemo.otherInvestors}
               onChange={(e) => handleInputChange('dealMemo', 'otherInvestors', e.target.value)}
               placeholder="List other investors..."

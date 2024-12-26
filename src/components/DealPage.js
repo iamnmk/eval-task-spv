@@ -6,7 +6,7 @@ import { Check, Clock, ChevronDown } from 'lucide-react';
 
 const StatusBadge = ({ status, isAdmin, onStatusChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const statusOptions = ['Draft', 'Submitted', 'In Review', 'Approved'];
+  const statusOptions = ['Draft', 'Submitted', 'In Review', 'Approved', 'Rejected'];
 
   const handleStatusClick = async (newStatus) => {
     if (onStatusChange) {
@@ -43,6 +43,12 @@ const StatusBadge = ({ status, isAdmin, onStatusChange }) => {
         return (
           <div className="flex items-center space-x-1 text-gray-600 bg-gray-100 px-2 py-1 rounded-full w-fit">
             <span className="text-sm">Draft</span>
+          </div>
+        );
+        case 'rejected':
+        return (
+          <div className="flex items-center space-x-1 text-gray-600 bg-red-50 px-2 py-1 rounded-full w-fit">
+            <span className="text-sm">Rejected</span>
           </div>
         );
     }
