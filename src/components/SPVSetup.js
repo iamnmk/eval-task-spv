@@ -906,14 +906,10 @@ export default function SPVSetup() {
   };
 
   const handleSaveDraft = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Create SPV record
-      const { data: spvData, error: basicInfoError } = await supabase
+      // Save basic info
+      const { error: basicInfoError } = await supabase
         .from('spvs')
         .upsert({
           id: id || undefined,
@@ -922,7 +918,7 @@ export default function SPVSetup() {
           description: formData.basicInfo.description,
           status: 'draft',
           is_complete: false,  // Mark as incomplete
-          created_by: user.id,
+          created_by: formData.basicInfo.companyName,
           company_details: formData.dealMemo.memo,
           financials: formData.carry.carryAmount,
           cap_table: formData.terms.valuationType,
