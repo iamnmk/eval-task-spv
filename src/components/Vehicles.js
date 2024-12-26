@@ -50,19 +50,6 @@ const Vehicles = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'submitted':
-        return 'bg-blue-100 text-blue-800';
-      case 'in progress':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const formatCurrency = (amount) => {
     if (!amount) return '-';
     return new Intl.NumberFormat('en-US', {
@@ -75,10 +62,6 @@ const Vehicles = () => {
 
   const handleRowClick = (spvId) => {
     navigate(`/deal/${spvId}`);
-  };
-
-  const handleCreateSPV = () => {
-    setIsModalOpen(true);
   };
 
   const handleSearch = (e) => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '../lib/supabase';
 
@@ -616,9 +616,8 @@ function SuccessDialog({ isOpen, onClose }) {
 }
 
 export default function SPVSetup() {
-  const { spvId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const [step, setStep] = useState(1);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -688,7 +687,7 @@ export default function SPVSetup() {
   };
 
   const validateDealMemo = () => {
-    const { memo, otherInvestors, risks, disclosures } = formData.dealMemo;
+    const { memo, risks, disclosures } = formData.dealMemo;
     return memo && risks && disclosures; // otherInvestors is optional
   };
 
@@ -766,7 +765,7 @@ export default function SPVSetup() {
       const { data: spvData, error: spvError } = await supabase
         .from('spv_basic_info')
         .upsert({
-          id: spvId || undefined,
+          id: id || undefined,
           spv_name: formData.basicInfo.spvName,
           company_name: formData.basicInfo.companyName,
           description: formData.basicInfo.description,
@@ -885,26 +884,19 @@ export default function SPVSetup() {
     }));
   };
 
-  const handleFileUpload = async (file, section, field) => {
+  const handleFileUpload = async (file, type) => {
     try {
       setIsLoading(true);
 
       // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${section}_${field}_${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage
-        .from('spv-documents')
-        .upload(fileName, file);
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('spv-documents')
-        .getPublicUrl(fileName);
-
-      // Update form data with file URL
-      handleInputChange(section, field, publicUrl);
+      const { data } = await supabase.storage
+        .from('documents')
+        .upload(`${id}/${type}/${file.name}`, file);
+      
+      if (data) {
+        console.log('File uploaded successfully:', data);
+      }
+      handleInputChange(type, 'documentUrl', data.publicUrl);
     } catch (error) {
       console.error('Error uploading file:', error);
       alert('Error uploading file. Please try again.');
@@ -924,7 +916,7 @@ export default function SPVSetup() {
       const { data: spvData, error: basicInfoError } = await supabase
         .from('spvs')
         .upsert({
-          id: spvId || undefined,
+          id: id || undefined,
           spv_name: formData.basicInfo.spvName || 'Untitled SPV',
           company_name: formData.basicInfo.companyName,
           description: formData.basicInfo.description,
@@ -953,7 +945,7 @@ export default function SPVSetup() {
 
   useEffect(() => {
     async function fetchSPVData() {
-      if (!spvId) {
+      if (!id) {
         setIsLoading(false);
         return;
       }
@@ -965,7 +957,7 @@ export default function SPVSetup() {
         const { data: spvData } = await supabase
           .from('spvs')
           .select('*')
-          .eq('id', spvId)
+          .eq('id', id)
           .single();
         
         if (spvData) {
@@ -991,7 +983,7 @@ export default function SPVSetup() {
     }
 
     fetchSPVData();
-  }, [spvId]);
+  }, [id]);
 
   const clear = () => {
     if (sigPad.current) {

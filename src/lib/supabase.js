@@ -26,14 +26,14 @@ export const adminSupabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function initializeDatabase() {
   try {
     // Add is_complete column
-    const { error: columnError } = await adminSupabase
+    const { error } = await adminSupabase
       .from('spv_basic_info')
       .select('id')
       .limit(1);
 
-    if (columnError && columnError.message.includes('is_complete')) {
+    if (error && error.message.includes('is_complete')) {
       // Column doesn't exist, create it
-      const { error } = await adminSupabase
+      await adminSupabase
         .from('spv_basic_info')
         .update({ is_complete: true })
         .eq('id', '00000000-0000-0000-0000-000000000000'); // This will fail but create the column
@@ -42,14 +42,10 @@ async function initializeDatabase() {
     }
 
     // Update existing records to mark non-draft as complete
-    const { error: updateError } = await adminSupabase
+    await adminSupabase
       .from('spv_basic_info')
       .update({ is_complete: true })
       .neq('status', 'draft');
-
-    if (updateError) {
-      console.error('Error updating records:', updateError);
-    }
 
   } catch (error) {
     console.error('Error initializing database:', error);
