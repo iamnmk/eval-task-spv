@@ -5,6 +5,8 @@ import CreateSPVModal from './CreateSPVModal';
 
 const Vehicles = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredSpvs, setFilteredSpvs] = useState([]);
   const [spvs, setSpvs] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -16,6 +18,16 @@ const Vehicles = () => {
   useEffect(() => {
     console.log('Current SPVs state:', spvs);
   }, [spvs]);
+
+  useEffect(() => {
+    const filtered = spvs.filter(spv => 
+      spv.spv_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      spv.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      spv.transaction_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      spv.instrument_list?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredSpvs(filtered);
+  }, [searchTerm, spvs]);
 
   const fetchSPVs = async () => {
     try {
@@ -69,6 +81,10 @@ const Vehicles = () => {
     setIsModalOpen(true);
   };
 
+  const handleSearch = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
   if (loading) {
     return <div className="p-4">Loading...</div>;
   }
@@ -98,6 +114,8 @@ const Vehicles = () => {
               <input
                 type="text"
                 placeholder="Search"
+                value={searchTerm}
+                onChange={handleSearch}
                 className="pl-8 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-900"
               />
               <svg
@@ -138,7 +156,7 @@ const Vehicles = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {spvs.map((spv) => (
+              {filteredSpvs.map((spv) => (
                 <tr
                   key={spv.id}
                   onClick={() => handleRowClick(spv.id)}
