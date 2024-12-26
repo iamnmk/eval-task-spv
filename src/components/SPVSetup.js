@@ -677,6 +677,62 @@ export default function SPVSetup() {
     return true;
   };
 
+  const validateBasicInfo = () => {
+    const { spvName, companyName, description, countryOfIncorporation, typeOfIncorporation } = formData.basicInfo;
+    return spvName && companyName && description && countryOfIncorporation && typeOfIncorporation;
+  };
+
+  const validateTerms = () => {
+    const { transactionType, instrumentType, roundSize, allocation } = formData.terms;
+    return transactionType && instrumentType && roundSize && allocation;
+  };
+
+  const validateDealMemo = () => {
+    const { memo, otherInvestors, risks, disclosures } = formData.dealMemo;
+    return memo && risks && disclosures; // otherInvestors is optional
+  };
+
+  const validateCarry = () => {
+    const { carryAmount, carryRecipient } = formData.carry;
+    return carryAmount && carryRecipient;
+  };
+
+  const validateSummary = () => {
+    // Summary is just a review step, no validation needed
+    return true;
+  };
+
+  const validateStep = (stepNumber) => {
+    switch (stepNumber - 1) { // Validate previous step
+      case 0:
+        return true; // First step, no previous validation needed
+      case 1:
+        return validateBasicInfo();
+      case 2:
+        return validateTerms();
+      case 3:
+        return validateDealMemo();
+      case 4:
+        return validateCarry();
+      case 5:
+        return validateSummary();
+      default:
+        return false;
+    }
+  };
+
+  const handleNextStep = () => {
+    if (!validateStep(step + 1)) {
+      alert('Please complete all required fields in the current step before proceeding.');
+      return;
+    }
+    setStep(Math.min(step + 1, 6));
+  };
+
+  const handlePreviousStep = () => {
+    setStep(Math.max(step - 1, 1));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -1007,7 +1063,7 @@ export default function SPVSetup() {
               {step > 1 && (
                 <Button 
                   className="border border-[#1B3B36] text-[#1B3B36]" 
-                  onClick={() => setStep(Math.max(step - 1, 1))}
+                  onClick={handlePreviousStep}
                 >
                   Previous
                 </Button>
@@ -1018,6 +1074,7 @@ export default function SPVSetup() {
                   <Button 
                     className="bg-[#1B3B36] text-white hover:bg-[#2a5a52]" 
                     onClick={handleSubmit}
+                    disabled={!validateStep(6)}
                   >
                     Submit
                   </Button>
@@ -1031,7 +1088,7 @@ export default function SPVSetup() {
               ) : (
                 <Button 
                   className="bg-[#1B3B36] text-white" 
-                  onClick={() => setStep(Math.min(step + 1, 6))}
+                  onClick={handleNextStep}
                 >
                   Next
                 </Button>

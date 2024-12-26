@@ -1,70 +1,125 @@
-# Getting Started with Create React App
+# SPV Setup Application
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern web application for managing Special Purpose Vehicle (SPV) setups and investments.
 
-## Available Scripts
+## Prerequisites
 
-In the project directory, you can run:
+- Node.js (v16 or higher)
+- npm (v7 or higher)
+- Supabase account and project
 
-### `npm start`
+## Installation
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. Clone the repository:
+```bash
+git clone [your-repository-url]
+cd spv-setup-app
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+2. Install dependencies:
+```bash
+npm install --legacy-peer-deps
+```
 
-### `npm test`
+3. Create a `.env` file in the root directory:
+```env
+# Supabase Configuration
+REACT_APP_SUPABASE_URL=your_supabase_project_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# Optional Configuration
+REACT_APP_API_URL=your_api_url
+REACT_APP_MAX_FILE_SIZE=10485760  # 10MB in bytes
+```
 
-### `npm run build`
+## Environment Variables
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Required Variables:
+- `REACT_APP_SUPABASE_URL`: Your Supabase project URL
+  - Found in: Supabase Dashboard > Project Settings > API
+  - Example: `https://xxxxxxxxxxxxx.supabase.co`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- `REACT_APP_SUPABASE_ANON_KEY`: Your Supabase anonymous key
+  - Found in: Supabase Dashboard > Project Settings > API > anon/public
+  - Example: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Optional Variables:
+- `REACT_APP_API_URL`: Base URL for API calls (if using external APIs)
+- `REACT_APP_MAX_FILE_SIZE`: Maximum file size for uploads in bytes
 
-### `npm run eject`
+## Database Setup
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Set up the following tables in your Supabase database:
+   - spv_basic_info
+   - spv_terms
+   - spv_carry
+   - spv_deal_memo
+   - spv_signatures
+   - spv_activity_log
+   - spv_invited_users
+   - user_roles
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. Enable Row Level Security (RLS) policies for each table
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Running the Application
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. Start the development server:
+```bash
+npm start
+```
 
-## Learn More
+2. Build for production:
+```bash
+npm run build --legacy-peer-deps
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+3. The application will be available at:
+- Development: `http://localhost:3000`
+- Production: Your deployed URL
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Features
 
-### Code Splitting
+- Multi-step SPV setup form with validation
+- Document upload functionality
+- E-signature capability
+- Real-time search and filtering
+- Role-based access control
+- Activity logging
+- Draft saving functionality
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Important Notes
 
-### Analyzing the Bundle Size
+1. Use `npm install --legacy-peer-deps` for installation to resolve dependency conflicts
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+2. Ensure all required environment variables are set before starting the application
 
-### Making a Progressive Web App
+3. Configure Supabase storage buckets for:
+   - Document uploads
+   - Company logos
+   - Signature data
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+4. Set up appropriate CORS policies in your Supabase project
 
-### Advanced Configuration
+5. Enable authentication in Supabase and configure the following providers:
+   - Email/Password
+   - Magic Link (optional)
+   - OAuth providers (if needed)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+## Troubleshooting
 
-### Deployment
+1. If you encounter dependency issues:
+```bash
+rm -rf node_modules
+rm package-lock.json
+npm install --legacy-peer-deps
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+2. If environment variables are not being recognized:
+   - Ensure .env file is in the root directory
+   - Restart the development server
+   - Prefix all variables with REACT_APP_
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+3. For file upload issues:
+   - Check Supabase storage bucket permissions
+   - Verify file size limits
+   - Ensure correct CORS configuration
